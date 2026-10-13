@@ -141,8 +141,15 @@ python auto-tune.py --autotune --block-size 512 --sample-rate 44100
 1. **Read full CLI reference**: `docs/CLI_REFERENCE.md`
 2. **Understand architecture**: `docs/ARCHITECTURE.md`
 3. **Customize settings**: Edit `config/defaults.py`
-4. **Run tests**: `pytest`
+4. **Run tests**: `pip install -r requirements-dev.txt && pytest`
 5. **Contribute**: See `docs/DEVELOPER_GUIDE.md`
+
+## Verify Installation
+
+```bash
+# Run unit tests (63 tests passing)
+pytest -v
+```
 
 ## Example Session
 

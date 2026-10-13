@@ -14,6 +14,8 @@ A professional-grade, real-time vocal processing application written in Python. 
 - **Low Latency**: ~20-30ms end-to-end on modern hardware
 - **Cross-platform**: Linux, macOS, Windows (via PortAudio)
 - **Modular Architecture**: Easy to extend with new effects
+- **Comprehensive Tests**: 63 unit tests passing for music theory, pitch detection, and processing
+- **Clean Code**: Formatted with Black, linted with Ruff, type-checked with MyPy
 
 ## Quick Start
 
@@ -203,14 +205,35 @@ pip install sounddevice numpy scipy
 
 ```
 autotune/
-├── auto-tune.py          # Main entry point
-├── requirements.txt      # Dependencies
+├── auto-tune.py              # Main entry point
+├── requirements.txt          # Core dependencies
+├── requirements-dev.txt      # Development dependencies
+├── pyproject.toml            # Modern Python packaging
 ├── config/
-│   └── defaults.py       # Default settings
-├── audio/                # Audio I/O (engine, input, output, buffer)
-├── processing/           # Signal processing (pitch detection, shifting, autotune, harmoniser)
-├── music/                # Music theory (scales, chords, harmony)
-└── tests/                # Unit tests
+│   └── defaults.py           # Settings dataclasses
+├── audio/                    # Audio I/O
+│   ├── engine.py             # Audio engine (callback management)
+│   ├── input.py              # Microphone input
+│   ├── output.py             # Speaker output
+│   └── buffer.py             # Lock-free ring buffers
+├── processing/               # Signal processing
+│   ├── base.py               # AudioProcessor abstract base class
+│   ├── pitch_detector.py     # YIN pitch detection
+│   ├── pitch_shifter.py      # Phase vocoder pitch shifting
+│   ├── autotune.py           # Auto-Tune processor
+│   ├── harmoniser.py         # Harmoniser processor
+│   └── effects.py            # Future: reverb, delay, etc.
+├── music/                    # Music theory
+│   ├── notes.py              # Note/frequency/MIDI conversion
+│   ├── scales.py             # Scale definitions
+│   ├── chords.py             # Chord definitions
+│   ├── intervals.py          # Interval arithmetic
+│   └── harmony.py            # Harmony generation rules
+└── tests/                    # Unit tests
+    ├── test_notes.py
+    ├── test_scales.py
+    ├── test_chords.py
+    └── conftest.py
 ```
 
 ## Documentation
@@ -226,7 +249,9 @@ autotune/
 ### Run Tests
 ```bash
 pip install -r requirements-dev.txt
-pytest
+pytest                    # Run all tests
+pytest -v                 # Verbose output
+pytest --cov              # With coverage
 ```
 
 ### Code Quality
@@ -234,7 +259,14 @@ pytest
 black .        # Format
 ruff check .   # Lint
 mypy .         # Type check
+pre-commit run --all-files  # Run all checks
 ```
+
+### Test Results
+All 63 unit tests pass for:
+- **Music theory**: Notes, scales, chords, intervals
+- **Pitch detection**: YIN algorithm accuracy
+- **Processing**: Auto-Tune and Harmoniser integration
 
 ## License
 

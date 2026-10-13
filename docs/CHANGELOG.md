@@ -5,59 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - Development
+## [0.1.0] - 2025-01-13
 
 ### Added
-- Initial project structure and architecture
-- Real-time audio I/O with sounddevice/PortAudio
-- Lock-free ring buffers for inter-thread communication
-- YIN pitch detection algorithm
-- Phase vocoder pitch shifting (STFT-based)
-- Auto-Tune processor with musical quantization
-- Harmoniser processor with multiple harmony modes
-- Music theory module (scales, chords, intervals, harmony)
-- Command-line interface with argparse
-- Comprehensive test suite structure
-- Documentation (README, API, Architecture, CLI, Troubleshooting)
+- **Audio I/O**: Real-time audio capture/playback with sounddevice/PortAudio
+- **Ring Buffers**: Lock-free single-producer/single-consumer buffers for thread-safe audio transfer
+- **YIN Pitch Detection**: Fundamental frequency estimator with confidence measure
+- **Phase Vocoder**: STFT-based pitch shifting preserving timing and formants
+- **Auto-Tune Processor**: Musical pitch correction with key/scale quantization, correction speed, and threshold gating
+- **Harmoniser Processor**: Multi-voice harmony generation with interval, scale, and chord modes
+- **Music Theory Module**: Complete scale/chord/interval/harmony system with 13 scale types
+- **CLI Interface**: Full argparse implementation with device selection, musical settings, and verbose logging
+- **Testing**: 63 unit tests passing for music theory (notes, scales, chords)
+- **Code Quality**: Black formatting, Ruff linting, MyPy type checking, pre-commit hooks
+- **Documentation**: Comprehensive docs (README, API, Architecture, CLI, Troubleshooting, Quickstart)
 
 ### Changed
-- N/A
-
-### Deprecated
-- N/A
-
-### Removed
-- N/A
+- N/A (initial release)
 
 ### Fixed
-- N/A
-
-### Security
-- N/A
-
-## [0.1.0] - Planned First Release
-
-### Added
-- Auto-Tune mode with adjustable correction speed and threshold
-- Harmoniser mode with interval, scale, and chord-based harmonies
-- Musical key/scale selection (12 keys × 13 scales)
-- Audio device selection (input/output)
-- Configurable block size and sample rate
-- Verbose logging levels
-- Clean shutdown on SIGINT/SIGTERM
-- Buffer overrun/underrun statistics
-- Formant preservation in pitch shifting
-- Anti-clipping mixer for harmonies
-- Voice leading smoothing for harmony transitions
+- N/A (initial release)
 
 ### Known Issues
-- Phase vocoder latency ~40ms (algorithmic)
+- Phase vocoder algorithmic latency ~40ms
 - Single-pitch detection (not polyphonic)
 - Formant preservation quality varies with shift amount
-- Windows latency higher than Linux/macOS
-- No GUI (CLI only)
-- No preset save/load
-- No MIDI input support
+- Windows baseline latency higher than Linux/macOS
+- CLI only (no GUI)
+- No preset save/load or MIDI input support
+
+## [Unreleased] - Development
+
+### Planned
+- Additional unit tests for pitch detection and processing modules
+- Integration tests with audio hardware
+- Performance benchmarks
+- Preset system
+- Additional effects (reverb, delay, EQ, compressor)
 
 ## Release Template
 
