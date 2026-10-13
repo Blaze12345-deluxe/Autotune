@@ -1,0 +1,16 @@
+# Core dependencies
+sounddevice>=0.4.6
+numpy>=1.24
+scipy>=1.10
+
+# CLI (stdlib)
+# argparse - included in Python stdlib
+
+# Testing
+pytest>=7.0
+pytest-cov>=4.0
+
+# Optional: Advanced pitch shifting (uncomment when needed)
+# pyrubberband>=0.3.0
+# librosa>=0.10.0
+# pedalboard>=0.7.0

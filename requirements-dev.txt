@@ -1,0 +1,21 @@
+# Development dependencies
+-r requirements.txt
+
+# Code quality
+black>=23.0
+ruff>=0.1.0
+mypy>=1.0
+pre-commit>=3.0
+
+# Testing extras
+pytest-cov>=4.0
+pytest-xdist>=3.0
+hypothesis>=6.0
+
+# Documentation (optional)
+# mkdocs>=1.5
+# mkdocs-material>=9.0
+
+# Profiling
+# snakeviz>=2.1
+# py-spy>=0.3

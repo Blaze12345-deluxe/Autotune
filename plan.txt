@@ -1,0 +1,449 @@
+### Project Plan: Real-Time Python Auto-Tune & Harmoniser
+
+### 1\. Project overview
+
+Create a real-time vocal processing application written in Python that captures audio from a microphone, processes it with either Auto-Tune or a harmoniser, and outputs the processed audio through the speakers or headphones.
+
+The project should use a modular, extensible architecture, with the actual audio-processing algorithms implemented as separate subroutines or modules. This will make it possible to improve the pitch-correction algorithm, add more advanced harmony generation, and introduce new audio effects without rewriting the main application.
+
+The initial version should be command-line controlled, with the selected mode determined by flags.
+
+```bash
+# Run pitch correction
+python auto-tune.py --autotune
+
+# Run the harmoniser
+python auto-tune.py --harmonise
+
+# Display available options
+python auto-tune.py --help
+```
+
+The two modes should be mutually exclusive. If neither is specified, the program should display help or explain that a mode is required.
+
+### 2\. Technology stack
+
+Use the following Python libraries as the foundation.
+
+| Library     | Purpose                                                        |
+| ----------- | -------------------------------------------------------------- |
+| sounddevice | Capture microphone audio and play processed audio in real time |
+| numpy       | Perform numerical operations on audio samples                  |
+| scipy       | Signal processing, filtering and pitch-analysis utilities      |
+| argparse    | Parse command-line flags and configuration options             |
+| pytest      | Test audio algorithms and processing behaviour                 |
+
+For more advanced pitch shifting, evaluate specialised algorithms such as Rubber Band or a suitable phase-vocoder implementation. Keep these behind a common interface so the underlying technology can be replaced later.
+
+Install the initial dependencies with:
+
+```bash
+python -m pip install sounddevice numpy scipy pytest
+```
+
+External audio libraries may be added when the pitch-shifting implementation requires them.
+
+### 3\. Proposed project structure
+
+Organise the project so that the command-line entry point does not contain the audio-processing algorithms themselves.
+
+```text
+
+auto-tune/
+├── auto-tune.py
+├── requirements.txt
+├── README.md
+├── config/
+│   └── defaults.py
+├── audio/
+│   ├── __init__.py
+│   ├── engine.py
+│   ├── input.py
+│   ├── output.py
+│   └── buffer.py
+├── processing/
+│   ├── __init__.py
+│   ├── base.py
+│   ├── pitch_detector.py
+│   ├── pitch_shifter.py
+│   ├── autotune.py
+│   ├── harmoniser.py
+│   └── effects.py
+├── music/
+│   ├── __init__.py
+│   ├── scales.py
+│   ├── chords.py
+│   └── harmony.py
+└── tests/
+    ├── test_pitch_detector.py
+    ├── test_pitch_shifter.py
+    ├── test_autotune.py
+    └── test_harmoniser.py
+```
+
+### Responsibilities of each component
+
+* `auto-tune.py`: Entry point, command-line flags and application startup.
+
+* `audio/engine.py`: Manages the audio stream and connects microphone input to the chosen processor.
+
+* `audio/input.py`: Handles microphone device selection and incoming audio.
+
+* `audio/output.py`: Handles playback-device selection and outgoing audio.
+
+* `audio/buffer.py`: Manages audio blocks and any buffering required for processing.
+
+* `processing/base.py`: Defines the common interface that every audio processor must implement.
+
+* `processing/pitch_detector.py`: Detects the fundamental frequency of the incoming voice.
+
+* `processing/pitch_shifter.py`: Changes the pitch of audio without simply changing its playback speed.
+
+* `processing/autotune.py`: Implements pitch correction.
+
+* `processing/harmoniser.py`: Generates additional vocal pitches.
+
+* `music/scales.py`: Defines musical keys and permitted notes.
+
+* `music/chords.py`: Stores chord definitions and note relationships.
+
+* `music/harmony.py`: Determines which harmony notes should be generated.
+
+* `processing/effects.py`: Provides a future home for effects such as reverb, delay and equalisation.
+
+### 4\. Command-line interface
+
+Use Python's `argparse` library to create a clear and expandable command-line interface.
+
+The initial requirements are:
+
+| Flag                | Behaviour                    |
+| ------------------- | ---------------------------- |
+| --autotune          | Enable pitch correction      |
+| --harmonise         | Enable harmony generation    |
+| --key C             | Set the musical key          |
+| --scale major       | Select the musical scale     |
+| --input-device ID   | Select the microphone        |
+| --output-device ID  | Select the playback device   |
+| --sample-rate 48000 | Set the sample rate          |
+| --list-devices      | List available audio devices |
+| --help              | Display usage information    |
+
+For example:
+
+```bash
+python auto-tune.py --autotune --key C --scale major
+```
+
+Or:
+
+```bash
+python auto-tune.py --harmonise --key G --scale major
+```
+
+The additional flags should be implemented as part of the framework even if the first algorithm release only supports a subset of the settings.
+
+Use mutually exclusive argument groups for `--autotune` and `--harmonise`. If the user supplies both, `argparse` should reject the command before opening the microphone.
+
+### 5\. Real-time audio pipeline
+
+The core of the application should use a continuous audio-processing pipeline.
+
+```mermaid
+
+flowchart TD
+    A[Microphone Input] --> B[Audio Stream]
+    B --> C[Audio Buffer]
+    C --> D[Pitch Detection]
+    D --> E{Selected Mode}
+    E -->|--autotune| F[Pitch Correction]
+    E -->|--harmonise| G[Harmony Generation]
+    F --> H[Output Processing]
+    G --> H
+    H --> I[Speakers or Headphones]
+```
+
+The program should process small blocks of audio continuously instead of recording an entire song before processing it.
+
+Start by testing blocks of 128–512 samples at 48 kHz. Smaller blocks can reduce latency but leave less time for processing. The correct block size should be measured on the target hardware.
+
+For every block, the audio engine should:
+
+* Receive samples from the microphone.
+
+* Pass them to the selected processor.
+
+* Produce the processed samples.
+
+* Send the result to the output stream.
+
+* Record processing errors or buffer overruns without crashing unnecessarily.
+
+The audio callback should avoid expensive operations, blocking calls, file access and unnecessary memory allocations. More demanding algorithms can use a worker thread and carefully managed buffers if needed.
+
+### 6\. The Auto-Tune subroutine
+
+The Auto-Tune implementation should live entirely inside `processing/autotune.py`, using the pitch detector and pitch shifter as independent components.
+
+### Processing stages
+
+Stage 1 — Detect pitch
+
+Use an algorithm such as YIN or another suitable fundamental-frequency estimator to estimate the pitch of voiced audio. The detector should return both the estimated frequency and a confidence measure.
+
+For example:
+
+* Input frequency: 438 Hz
+
+* Estimated nearest musical note: approximately A4
+
+* Target frequency: 440 Hz
+
+Silence, unvoiced consonants and unreliable pitch estimates should not be forced onto arbitrary notes.
+
+Stage 2 — Convert pitch to a musical note
+
+Convert the detected frequency to a continuous MIDI note number, then identify the nearest permitted note in the selected scale.
+
+Stage 3 — Calculate the correction
+
+Determine the difference between the detected pitch and the target pitch. Express the difference in cents, where 100 cents equals one semitone.
+
+Stage 4 — Apply pitch correction
+
+Pass the audio and the target pitch to the pitch-shifting engine. The engine must change the perceived pitch while preserving the timing and duration of the audio as closely as possible.
+
+Stage 5 — Smooth the correction
+
+Use a configurable correction speed to control how quickly the voice approaches the target pitch. Smooth transitions help preserve natural vocal movement, while very fast correction creates the characteristic robotic effect.
+
+### Suggested interface
+
+```python
+def detect_pitch(audio_block, sample_rate):
+    """Return estimated frequency and confidence."""
+    ...
+
+def find_target_note(frequency, key, scale):
+    """Find the nearest allowed musical note."""
+    ...
+
+def correct_pitch(audio_block, target_frequency, settings):
+    """Return pitch-corrected audio."""
+    ...
+
+def process_autotune(audio_block, sample_rate, settings):
+    """Run one block through the Auto-Tune pipeline."""
+    ...
+```
+
+These functions are illustrative interfaces rather than completed algorithms. Their implementations should be independently testable.
+
+### 7\. The harmoniser subroutine
+
+The harmoniser should live in `processing/harmoniser.py` and reuse the same pitch detector and pitch-shifting engine as Auto-Tune.
+
+Instead of producing a single corrected note, it should generate one or more additional voices.
+
+### Processing stages
+
+* Detect the pitch of the incoming vocal audio.
+
+* Determine the current musical note and relevant chord or scale.
+
+* Calculate the target notes for the harmony voices.
+
+* Pitch-shift copies of the input audio to the selected target notes.
+
+* Mix the original voice and generated voices together.
+
+* Apply volume balancing and basic output protection to prevent clipping.
+
+For example, with a C major chord, the original voice could sing C while additional voices sing E and G. The harmoniser would create three simultaneous pitches from the same microphone signal.
+
+The first version should support configurable harmony intervals or fixed scale-based harmony rules. A future version can use chord progression tracking, MIDI input or keyboard-controlled harmony.
+
+### Suggested interface
+
+```python
+def choose_harmony_notes(
+    detected_frequency,
+    key,
+    scale,
+    chord=None,
+    settings=None,
+):
+    """Return the target pitches for additional voices."""
+    ...
+
+def generate_harmony_voices(
+    audio_block,
+    source_frequency,
+    target_frequencies,
+    settings,
+):
+    """Generate pitch-shifted copies of the input."""
+    ...
+
+def mix_harmony(original, voices, settings):
+    """Mix voices while controlling gain and clipping."""
+    ...
+
+def process_harmoniser(audio_block, sample_rate, settings):
+    """Run one block through the harmoniser pipeline."""
+    ...
+```
+
+The harmoniser should preserve the original vocal signal by default, with settings to control the volume of the lead voice and each harmony voice.
+
+### 8\. Shared processor interface
+
+To make future expansion straightforward, define a common interface in `processing/base.py`.
+
+```python
+from abc import ABC, abstractmethod
+import numpy as np
+
+class AudioProcessor(ABC):
+    @abstractmethod
+    def process(
+        self,
+        audio_block: np.ndarray,
+        sample_rate: int,
+    ) -> np.ndarray:
+        """Process one audio block and return the output."""
+        raise NotImplementedError
+
+    def reset(self) -> None:
+        """Reset algorithm state when necessary."""
+        pass
+```
+
+Both `AutoTuneProcessor` and `HarmoniserProcessor` should implement this interface.
+
+The audio engine can then work with any processor without knowing which algorithm is active. Future processors could include a vocoder, distortion, reverb, noise reduction or an AI-powered vocal effect.
+
+### 9\. Main program behaviour
+
+The entry point should be responsible for configuration and orchestration, not pitch analysis.
+
+Its basic execution flow should be:
+
+* Parse command-line arguments.
+
+* Validate the selected mode and audio settings.
+
+* Create the appropriate processor.
+
+* Open the microphone and output streams.
+
+* Process audio continuously until the user interrupts the program.
+
+* Stop the streams cleanly and release resources.
+
+An illustrative outline is:
+
+```python
+def main():
+    args = parse_arguments()
+
+    settings = build_settings(args)
+
+    if args.autotune:
+        processor = AutoTuneProcessor(settings)
+    elif args.harmonise:
+        processor = HarmoniserProcessor(settings)
+    else:
+        show_help()
+        return
+
+    engine = AudioEngine(
+        processor=processor,
+        settings=settings,
+    )
+
+    try:
+        engine.start()
+        engine.run_until_interrupted()
+    finally:
+        engine.stop()
+
+if __name__ == "__main__":
+    main()
+```
+
+The classes and functions shown here are interfaces to implement, not existing working code.
+
+### 10\. Audio quality and latency
+
+Real-time vocal processing needs to balance responsiveness against audio quality.
+
+| Concern         | Initial approach                                                     |
+| --------------- | -------------------------------------------------------------------- |
+| Latency         | Begin with 128–512-sample blocks and measure actual end-to-end delay |
+| Pitch stability | Use pitch confidence and temporal smoothing                          |
+| Audio glitches  | Track buffer overruns and processing time                            |
+| Voice quality   | Use a proper pitch-shifting algorithm                                |
+| Clipping        | Control output gain and peak levels                                  |
+| Feedback        | Prefer headphones during testing                                     |
+| Silence         | Avoid generating arbitrary notes when pitch is unreliable            |
+
+At 48 kHz, a 256-sample block lasts approximately 5.33 milliseconds. However, this is only the block duration; the total latency will be higher because of device buffers, pitch analysis and pitch-shifting lookahead.
+
+A simple pitch detector alone will not produce a convincing Auto-Tune effect. The pitch shifter is equally important, particularly for keeping the original timing intact.
+
+### 11\. Development roadmap
+
+* Phase 1 — Audio foundation
+
+    Capture microphone input and play it back with no effects. Add device selection, clean shutdown and buffer diagnostics.
+
+* Phase 2 — Pitch detection
+
+    Implement and test pitch detection using generated sine waves and recorded vocal samples. Handle silence and unreliable estimates.
+
+* Phase 3 — Auto-Tune
+
+    Add musical scales, nearest-note selection, pitch shifting and adjustable correction speed.
+
+* Phase 4 — Harmoniser
+
+    Generate multiple pitch-shifted voices, implement harmony rules and add individual voice-volume controls.
+
+* Phase 5 — Configuration
+
+    Add command-line options for keys, scales, input/output devices and processing parameters.
+
+* Phase 6 — Quality and performance
+
+    Measure latency, improve voice quality, prevent clipping, and test on different audio devices.
+
+* Phase 7 — Future expansion
+
+    Add a graphical interface, MIDI keyboard support, chord tracking, presets, effects chains, recording and plugin support.
+
+### 12\. Acceptance criteria
+
+The first usable release should meet these requirements:
+
+* `python auto-tune.py --autotune` starts real-time pitch correction.
+
+* `python auto-tune.py --harmonise` starts real-time harmony generation.
+
+* The two modes cannot be selected simultaneously.
+
+* The application uses microphone input and plays processed audio continuously.
+
+* Both processing modes use independent subroutines and share reusable pitch-analysis components.
+
+* The musical key and scale can be configured.
+
+* Audio processing handles silence and unreliable pitch estimates safely.
+
+* The application stops cleanly when interrupted.
+
+* Unit tests verify pitch detection, target-note selection, pitch correction and harmony generation.
+
+* New processing modes can be added without rewriting the audio engine or command-line entry point.
+
+Final architectural principle: keep audio capture, pitch detection, pitch shifting, musical decision-making and command-line configuration separate. That separation is what will allow this to grow from a basic Python Auto-Tune utility into a more complete real-time vocal-processing framework.
