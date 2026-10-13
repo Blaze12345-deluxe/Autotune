@@ -24,6 +24,11 @@ A professional-grade, real-time vocal processing application written in Python. 
 sudo apt-get install portaudio19-dev python3-dev
 ```
 
+**Linux (Fedora):**
+```bash
+sudo dnf install portaudio-devel python3-devel
+```
+
 **macOS:**
 ```bash
 brew install portaudio
