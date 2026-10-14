@@ -3,6 +3,25 @@
 ## 5-Minute Setup
 
 ### 1. Install Dependencies
+
+**Using uv (recommended):**
+```bash
+# Install uv if needed
+pip install uv
+
+# Linux (Ubuntu/Debian)
+sudo apt-get install portaudio19-dev python3-dev
+
+# macOS
+brew install portaudio
+
+# Windows - no system deps needed
+
+# Create venv and install
+uv sync
+```
+
+**Using pip (traditional):**
 ```bash
 # Linux (Ubuntu/Debian)
 sudo apt-get install portaudio19-dev python3-dev
@@ -18,13 +37,20 @@ pip install sounddevice numpy scipy
 
 ### 2. Verify Installation
 ```bash
+# With uv
+uv run python -c "import sounddevice as sd; print(sd.query_devices())"
+
+# With pip
 python -c "import sounddevice as sd; print(sd.query_devices())"
 ```
 Should list your audio devices without errors.
 
 ### 3. Run Auto-Tune
 ```bash
-# Basic pitch correction in C major
+# With uv
+uv run python auto-tune.py --autotune --key C --scale major
+
+# With pip
 python auto-tune.py --autotune --key C --scale major
 
 # Sing into your microphone - you'll hear corrected pitch in headphones

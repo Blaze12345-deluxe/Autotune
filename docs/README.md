@@ -16,6 +16,24 @@ A professional-grade, real-time vocal processing application written in Python. 
 ## Quick Start
 
 ### Installation
+
+**Using uv (recommended):**
+```bash
+# Install uv if needed
+pip install uv
+
+# System dependencies
+# Ubuntu/Debian:
+sudo apt-get install portaudio19-dev python3-dev
+
+# macOS:
+brew install portaudio
+
+# Create venv and install
+uv sync
+```
+
+**Using pip (traditional):**
 ```bash
 # System dependencies
 # Ubuntu/Debian:

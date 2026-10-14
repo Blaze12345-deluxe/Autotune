@@ -20,6 +20,24 @@ brew install portaudio
 ```
 
 ### Development Setup
+
+**Using uv (recommended):**
+```bash
+# Clone repository
+git clone <repo-url>
+cd autotune
+
+# Install uv if needed
+pip install uv
+
+# Create venv and install with dev dependencies
+uv sync --extra dev
+
+# Install pre-commit hooks
+uv run pre-commit install
+```
+
+**Using pip (traditional):**
 ```bash
 # Clone repository
 git clone <repo-url>
@@ -109,22 +127,31 @@ pytest tests/integration/ -v
 ### Code Quality
 ```bash
 # Format code
+# With uv
+uv run black .
+
+# With pip
 black .
 
 # Check formatting
-black --check .
+uv run black --check .
+# black --check .
 
 # Lint
-ruff check .
+uv run ruff check .
+# ruff check .
 
 # Fix lint issues
-ruff check --fix .
+uv run ruff check --fix .
+# ruff check --fix .
 
 # Type check
-mypy .
+uv run mypy .
+# mypy .
 
 # Run all checks
-pre-commit run --all-files
+uv run pre-commit run --all-files
+# pre-commit run --all-files
 ```
 
 ### Adding a New Processor

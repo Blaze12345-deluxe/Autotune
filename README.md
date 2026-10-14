@@ -47,8 +47,31 @@ brew install portaudio
 ```
 
 ### 2. Install Python Package
+
+**Using uv (recommended - faster, reliable):**
+```bash
+# Install uv if not already installed
+pip install uv
+
+# Install dependencies and create virtual environment
+uv sync
+
+# Run the app
+uv run python auto-tune.py --autotune --key C --scale major
+```
+
+**Using pip (traditional):**
 ```bash
 pip install -r requirements.txt
+```
+
+**With development dependencies:**
+```bash
+# uv
+uv sync --extra dev
+
+# pip
+pip install -r requirements-dev.txt
 ```
 
 ### 3. Run Auto-Tune
