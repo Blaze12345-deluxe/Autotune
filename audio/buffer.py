@@ -124,27 +124,32 @@ class RingBuffer:
 
         available = self.available
 
-        if n_samples > available:
-            # Underrun: pad with zeros
-            self.underruns += 1
-            underrun_amount = n_samples - available
-            if underrun_amount > self._max_underrun:
-                self._max_underrun = underrun_amount
-
-        # Read available data
+        # Read available data - but never more than n_samples
         read_pos = self._read_idx & self.mask
-        first_chunk = min(available, self.capacity - read_pos)
+        # Limit first_chunk to not exceed n_samples
+        first_chunk = min(available, n_samples, self.capacity - read_pos)
 
         result = np.zeros((n_samples, self.channels), dtype=self.dtype)
 
         if available > 0:
             result[:first_chunk] = self._buffer[read_pos : read_pos + first_chunk]
 
-            if first_chunk < available:
-                second_chunk = available - first_chunk
+            # Only read second chunk if we still need more samples and there's more available
+            remaining_needed = min(available - first_chunk, n_samples - first_chunk)
+            if remaining_needed > 0:
+                second_chunk = min(remaining_needed, available - first_chunk)
                 result[first_chunk : first_chunk + second_chunk] = self._buffer[0:second_chunk]
 
-        self._read_idx = (self._read_idx + n_samples) & self.mask
+        if n_samples > available:
+            # Underrun: pad with zeros (result already zero-initialized)
+            self.underruns += 1
+            underrun_amount = n_samples - available
+            if underrun_amount > self._max_underrun:
+                self._max_underrun = underrun_amount
+
+        # Only advance read index by what we actually read (not n_samples!)
+        samples_read = min(n_samples, available)
+        self._read_idx = (self._read_idx + samples_read) & self.mask
         return result
 
     def peek(self, n_samples: int) -> np.ndarray:

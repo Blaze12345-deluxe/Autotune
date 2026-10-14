@@ -107,8 +107,17 @@ class AudioOutput:
             if self._underflow_callback:
                 self._underflow_callback()
 
-        # Read from ring buffer
+        # Read from ring buffer - ensure we read exactly 'frames' samples
         data = self.buffer.read(frames)
+
+        # Ensure data has the right number of frames (in case buffer returns wrong size)
+        if data.shape[0] != frames:
+            if data.shape[0] > frames:
+                data = data[:frames]
+            else:
+                # Pad with zeros
+                pad = np.zeros((frames - data.shape[0], data.shape[1]), dtype=data.dtype)
+                data = np.vstack([data, pad])
 
         # Handle channel count mismatch
         if data.shape[1] != outdata.shape[1]:

@@ -116,6 +116,9 @@ class AudioEngine:
         # Callbacks
         self._error_callback: Callable[[Exception], None] | None = None
 
+        # Processing thread
+        self._processing_thread: Optional[threading.Thread] = None
+
         # Signal handling
         self._signal_handlers_installed = False
 
@@ -146,6 +149,10 @@ class AudioEngine:
         self._stop_event.clear()
         self._stats.start_time = time.time()
 
+        # Start processing thread
+        self._processing_thread = threading.Thread(target=self._processing_loop, daemon=True)
+        self._processing_thread.start()
+
     def stop(self):
         """Stop audio engine."""
         if not self._running:
@@ -153,6 +160,10 @@ class AudioEngine:
 
         self._stop_event.set()
         self._running = False
+
+        # Wait for processing thread to finish
+        if self._processing_thread and self._processing_thread.is_alive():
+            self._processing_thread.join(timeout=2.0)
 
         # Stop I/O
         self.input.stop()
@@ -255,6 +266,29 @@ class AudioEngine:
         self._stats.total_callbacks += 1
 
         return output
+
+    def _processing_loop(self):
+        """Processing loop that runs in a separate thread.
+        
+        Continuously reads from input buffer, processes through the processor,
+        and writes to output buffer.
+        """
+        while self._running and not self._stop_event.is_set():
+            try:
+                # Read block from input buffer
+                input_block = self.input.read_block()
+                
+                # Process the block
+                output_block = self.process_block(input_block)
+                
+                # Write to output buffer
+                self.output.write_block(output_block)
+                
+            except Exception as e:
+                if self._error_callback:
+                    self._error_callback(e)
+                # Small sleep to prevent busy loop on error
+                time.sleep(0.001)
 
     def get_stats(self) -> dict:
         """Get combined engine statistics."""
