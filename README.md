@@ -276,18 +276,30 @@ autotune/
 
 ### Run Tests
 ```bash
+# Using uv (recommended)
+uv sync --extra dev
+uv run pytest                    # Run all tests
+uv run pytest -v                 # Verbose output
+uv run pytest --cov              # With coverage
+
+# Using pip
 pip install -r requirements-dev.txt
-pytest                    # Run all tests
-pytest -v                 # Verbose output
-pytest --cov              # With coverage
+pytest
 ```
 
 ### Code Quality
 ```bash
-black .        # Format
-ruff check .   # Lint
-mypy .         # Type check
-pre-commit run --all-files  # Run all checks
+# Using uv (recommended)
+uv run black .
+uv run ruff check .
+uv run mypy .
+uv run pre-commit run --all-files
+
+# Using pip
+black .
+ruff check .
+mypy .
+pre-commit run --all-files
 ```
 
 ### Test Results
