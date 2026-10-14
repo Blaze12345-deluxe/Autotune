@@ -23,27 +23,28 @@ A professional-grade, real-time vocal processing application written in Python. 
 
 **Linux (Ubuntu/Debian):**
 ```bash
-sudo apt-get install portaudio19-dev python3-dev
+sudo apt-get install portaudio19-dev python3-dev ffmpeg
 ```
 
 **Linux (Fedora):**
 ```bash
-sudo dnf install portaudio-devel python3-devel
+sudo dnf install portaudio-devel python3-devel ffmpeg
 ```
 
 **Termux (Android):**
 ```bash
-pkg install portaudio python
+pkg install portaudio python ffmpeg
 ```
 
 **macOS:**
 ```bash
-brew install portaudio
+brew install portaudio ffmpeg
 ```
 
 **Windows:**
 ```bash
 # No system dependencies needed (PortAudio bundled with sounddevice)
+# Install ffmpeg separately for video file processing
 ```
 
 ### 2. Install Python Package
@@ -74,7 +75,7 @@ uv sync --extra dev
 pip install -r requirements-dev.txt
 ```
 
-### 3. Run Auto-Tune
+### 3. Run Auto-Tune (Real-time)
 ```bash
 # Basic pitch correction in C major
 python auto-tune.py --autotune --key C --scale major
@@ -82,10 +83,27 @@ python auto-tune.py --autotune --key C --scale major
 # Sing into your microphone - you'll hear corrected pitch!
 ```
 
-### 4. Run Harmoniser
+### 4. Run Harmoniser (Real-time)
 ```bash
 # Generate harmonies (major third + fifth)
 python auto-tune.py --harmonise --key C --scale major --intervals 4,7
+```
+
+### 5. Process Audio/Video Files (Offline)
+```bash
+# Auto-Tune an audio file
+python auto-tune.py --autotune --key C --scale major \
+  --input-file input.wav --output-file output.wav
+
+# Harmonise an audio file with custom settings
+python auto-tune.py --harmonise --key A --scale minor \
+  --intervals 3,7 --voice-volumes 1.0,0.6 \
+  --input-file song.mp3 --output-file harmony.wav
+
+# Process video file (extract audio, process, re-combine)
+python auto-tune.py --autotune --key G --scale major \
+  --input-file video.mp4 --output-file video_autotuned.mp4 \
+  --keep-video
 ```
 
 ## Common Use Cases
@@ -167,6 +185,13 @@ python auto-tune.py --harmonise \
 | `--voice-volumes` | `1.0,0.7,0.7` | Volume per voice (lead, harmony1, harmony2...) |
 | `--chord-mode` | `intervals` | Harmony mode: `intervals`, `scale`, `chord` |
 
+### File Processing Options
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--input-file` | | Input audio/video file to process (offline mode) |
+| `--output-file` | | Output audio file (required with `--input-file`) |
+| `--keep-video` | `false` | Keep video stream when processing video file (requires ffmpeg) |
+
 ### Utility
 | Flag | Description |
 |------|-------------|
@@ -217,6 +242,9 @@ python auto-tune.py --autotune --input-device "Focusrite" --output-device "Headp
 | **Wrong pitch correction** | Check `--key` and `--scale` match your song |
 | **Too robotic** | Use `--correction-speed 0.2 --threshold 50` |
 | **Harmonies clash** | Use `--chord-mode scale` for diatonic harmonies |
+| **Video processing fails** | Install ffmpeg: `sudo apt-get install ffmpeg` (Linux) or `brew install ffmpeg` (macOS) |
+| **Cannot process video** | Use `--keep-video` flag and ensure ffmpeg is installed |
+| **Output file not created** | Ensure `--output-file` is specified with `--input-file` |
 
 ## Requirements
 

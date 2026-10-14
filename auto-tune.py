@@ -4,11 +4,20 @@ Real-time Python Auto-Tune & Harmoniser
 
 Capture microphone audio, process it with Auto-Tune (pitch correction)
 or Harmoniser (harmony generation), and output through speakers/headphones.
+Also supports offline file processing for audio and video files.
 """
 
 import argparse
 import sys
 import time
+import subprocess
+import tempfile
+import os
+import shutil
+from pathlib import Path
+
+import numpy as np
+import soundfile as sf
 
 from audio import (
     AudioEngine,
@@ -117,6 +126,19 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--chord-quality", default="major", help="Chord quality for chord mode (default: major)"
+    )
+
+    # File processing options
+    parser.add_argument(
+        "--input-file", type=str, help="Input audio/video file to process (offline mode)"
+    )
+    parser.add_argument(
+        "--output-file", type=str, help="Output audio file (required with --input-file)"
+    )
+    parser.add_argument(
+        "--keep-video",
+        action="store_true",
+        help="Keep video stream when processing video file (requires ffmpeg)",
     )
 
     parser.add_argument(
@@ -257,7 +279,197 @@ def print_settings(settings: Settings):
         print(f"Chord Mode: {settings.harmoniser.chord_mode}")
 
 
-def main():
+def extract_audio_from_video(video_path: str, output_path: str, sample_rate: int) -> bool:
+    """Extract audio from video file using ffmpeg."""
+    try:
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", video_path,
+            "-ar", str(sample_rate),
+            "-ac", "1",
+            "-c:a", "pcm_f32le",
+            output_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.returncode == 0
+    except FileNotFoundError:
+        print("Error: ffmpeg not found. Please install ffmpeg to process video files.", file=sys.stderr)
+        return False
+
+
+def combine_audio_with_video(video_path: str, audio_path: str, output_path: str) -> bool:
+    """Combine processed audio with original video using ffmpeg."""
+    try:
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", video_path,
+            "-i", audio_path,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-shortest",
+            output_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.returncode == 0
+    except FileNotFoundError:
+        print("Error: ffmpeg not found.", file=sys.stderr)
+        return False
+
+
+def process_file(
+    input_path: str,
+    output_path: str,
+    processor,
+    sample_rate: int,
+    block_size: int,
+    keep_video: bool = False,
+    verbose: int = 0,
+) -> int:
+    """Process an audio or video file offline."""
+    input_path = Path(input_path)
+    output_path = Path(output_path)
+
+    # Create temporary directory for intermediate files
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        audio_input = tmpdir / "input_audio.wav"
+        audio_output = tmpdir / "output_audio.wav"
+
+        # Check if input is video
+        video_extensions = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".m4v"}
+        is_video = input_path.suffix.lower() in video_extensions
+
+        if is_video:
+            if verbose > 0:
+                print(f"Extracting audio from video: {input_path}")
+            if not extract_audio_from_video(str(input_path), str(audio_input), sample_rate):
+                return 1
+        else:
+            # Copy audio file to temp location for uniform processing
+            shutil.copy2(input_path, audio_input)
+
+        # Read audio file
+        if verbose > 0:
+            print(f"Reading audio: {audio_input}")
+
+        try:
+            audio_data, file_sr = sf.read(audio_input, dtype="float32")
+        except Exception as e:
+            print(f"Error reading audio file: {e}", file=sys.stderr)
+            return 1
+
+        # Resample if needed
+        if file_sr != sample_rate:
+            if verbose > 0:
+                print(f"Resampling from {file_sr}Hz to {sample_rate}Hz")
+            from scipy.signal import resample
+            ratio = sample_rate / file_sr
+            n_samples = int(len(audio_data) * ratio)
+            audio_data = resample(audio_data, n_samples)
+
+        # Ensure mono
+        if audio_data.ndim > 1:
+            audio_data = np.mean(audio_data, axis=1)
+
+        # Process in blocks
+        n_samples = len(audio_data)
+        n_blocks = (n_samples + block_size - 1) // block_size
+        output_data = np.zeros_like(audio_data)
+
+        if verbose > 0:
+            print(f"Processing {n_blocks} blocks ({n_samples} samples)...")
+
+        for i in range(n_blocks):
+            start = i * block_size
+            end = min(start + block_size, n_samples)
+            block = audio_data[start:end]
+
+            # Pad last block if needed
+            if len(block) < block_size:
+                block = np.pad(block, (0, block_size - len(block)))
+
+            # Process block
+            processed = processor.process(block.reshape(-1, 1), sample_rate).flatten()
+
+            # Trim if last block was padded
+            if end > n_samples:
+                processed = processed[:end - start]
+
+            output_data[start:end] = processed
+
+            if verbose > 1:
+                progress = (i + 1) / n_blocks * 100
+                print(f"\rProgress: {progress:.1f}%", end="", flush=True)
+
+        if verbose > 1:
+            print()
+
+        # Write processed audio
+        if verbose > 0:
+            print(f"Writing audio: {audio_output}")
+        sf.write(audio_output, output_data, sample_rate, subtype="FLOAT")
+
+        # Handle output
+        if is_video and keep_video:
+            if verbose > 0:
+                print("Combining processed audio with video...")
+            if not combine_audio_with_video(str(input_path), str(audio_output), str(output_path)):
+                return 1
+        else:
+            # Just copy the processed audio to output
+            shutil.copy2(audio_output, output_path)
+
+    if verbose > 0:
+        print(f"Done! Output saved to: {output_path}")
+    return 0
+
+
+def extract_audio_from_video(video_path: str, output_path: str, sample_rate: int) -> bool:
+    """Extract audio from video file using ffmpeg."""
+    try:
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", video_path,
+            "-ar", str(sample_rate),
+            "-ac", "1",
+            "-c:a", "pcm_f32le",
+            output_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.returncode == 0
+    except FileNotFoundError:
+        print("Error: ffmpeg not found. Please install ffmpeg to process video files.", file=sys.stderr)
+        return False
+
+
+def combine_audio_with_video(video_path: str, audio_path: str, output_path: str) -> bool:
+    """Combine processed audio with original video using ffmpeg."""
+    try:
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", video_path,
+            "-i", audio_path,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-shortest",
+            output_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.returncode == 0
+    except FileNotFoundError:
+        print("Error: ffmpeg not found.", file=sys.stderr)
+        return False
+
+
+def main() -> int:
     """Main entry point."""
     args = parse_args()
 
@@ -270,12 +482,45 @@ def main():
         list_scales()
         return 0
 
-    # Validate mode is provided
+    # File processing mode
+    if args.input_file:
+        if not args.output_file:
+            print("Error: --output-file is required when using --input-file", file=sys.stderr)
+            return 2
+
+        if not args.autotune and not args.harmonise:
+            print("Error: one of the arguments --autotune --harmonise is required", file=sys.stderr)
+            return 2
+
+        settings = build_settings(args)
+
+        if args.verbose > 0:
+            print_settings(settings)
+            print()
+
+        try:
+            processor = create_processor(
+                settings, settings.audio.sample_rate, settings.audio.block_size
+            )
+        except Exception as e:
+            print(f"Error creating processor: {e}", file=sys.stderr)
+            return 4
+
+        return process_file(
+            args.input_file,
+            args.output_file,
+            processor,
+            settings.audio.sample_rate,
+            settings.audio.block_size,
+            keep_video=args.keep_video,
+            verbose=args.verbose,
+        )
+
+    # Real-time mode
     if not args.autotune and not args.harmonise:
         print("Error: one of the arguments --autotune --harmonise is required", file=sys.stderr)
         return 2
 
-    # Build settings
     settings = build_settings(args)
 
     # Resolve devices
