@@ -31,6 +31,11 @@ sudo apt-get install portaudio19-dev python3-dev
 sudo dnf install portaudio-devel python3-devel
 ```
 
+**Termux (Android):**
+```bash
+pkg install portaudio python
+```
+
 **macOS:**
 ```bash
 brew install portaudio
