@@ -7,6 +7,11 @@ from .base import AudioProcessor, BypassProcessor, GainProcessor, ProcessingChai
 from .harmoniser import HarmoniserProcessor, VoiceState, create_harmoniser_processor
 from .pitch_detector import PitchDetector, PitchResult, YINPitchDetector
 from .pitch_shifter import PhaseVocoderState, PitchShifter, SimplePitchShifter
+from .high_quality_shifter import (
+    HighQualityPitchShifter,
+    GPUPitchDetector,
+    create_high_quality_shifter,
+)
 
 __all__ = [
     # Base
@@ -19,10 +24,13 @@ __all__ = [
     "PitchDetector",
     "PitchResult",
     "YINPitchDetector",
+    "GPUPitchDetector",
     # Pitch Shifting
     "PitchShifter",
     "SimplePitchShifter",
     "PhaseVocoderState",
+    "HighQualityPitchShifter",
+    "create_high_quality_shifter",
     # Processors
     "AutoTuneProcessor",
     "CorrectionSmoother",

@@ -11,7 +11,7 @@ from music import cents_to_scale, freq_to_midi, midi_to_freq, quantize_to_scale
 
 from .base import AudioProcessor
 from .pitch_detector import PitchDetector
-from .pitch_shifter import PitchShifter
+from .high_quality_shifter import HighQualityPitchShifter
 
 
 @dataclass
@@ -64,7 +64,7 @@ class AutoTuneProcessor(AudioProcessor):
         self.pitch_detector = PitchDetector(sample_rate, detector_settings)
 
         shifter_settings = pitch_shifter_settings or PitchShifterSettings()
-        self.pitch_shifter = PitchShifter(shifter_settings, sample_rate)
+        self.pitch_shifter = HighQualityPitchShifter(shifter_settings, sample_rate)
 
         # Smoother
         self.smoother = CorrectionSmoother(settings.correction_speed, sample_rate, block_size)

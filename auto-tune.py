@@ -387,6 +387,7 @@ def process_file(
             start = i * block_size
             end = min(start + block_size, n_samples)
             block = audio_data[start:end]
+            original_block_len = len(block)
 
             # Pad last block if needed
             if len(block) < block_size:
@@ -396,8 +397,8 @@ def process_file(
             processed = processor.process(block.reshape(-1, 1), sample_rate).flatten()
 
             # Trim if last block was padded
-            if end > n_samples:
-                processed = processed[:end - start]
+            if original_block_len < block_size:
+                processed = processed[:original_block_len]
 
             output_data[start:end] = processed
 

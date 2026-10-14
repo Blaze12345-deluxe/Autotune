@@ -18,14 +18,14 @@ from music import (
 
 from .base import AudioProcessor
 from .pitch_detector import PitchDetector
-from .pitch_shifter import PitchShifter
+from .high_quality_shifter import HighQualityPitchShifter
 
 
 @dataclass
 class VoiceState:
     """State for a single harmony voice."""
 
-    shifter: PitchShifter
+    shifter: "HighQualityPitchShifter"
     target_freq: float = 0.0
     current_freq: float = 0.0
     volume: float = 1.0
@@ -54,7 +54,7 @@ class HarmoniserProcessor(AudioProcessor):
         shifter_settings = pitch_shifter_settings or PitchShifterSettings()
 
         # Lead voice (original pitch - may be pitch-corrected)
-        self.lead_shifter = PitchShifter(shifter_settings, sample_rate)
+        self.lead_shifter = HighQualityPitchShifter(shifter_settings, sample_rate)
 
         # Harmony voices
         self.harmony_voices: list[VoiceState] = []
@@ -62,7 +62,7 @@ class HarmoniserProcessor(AudioProcessor):
         for i in range(max_harmonies):
             self.harmony_voices.append(
                 VoiceState(
-                    shifter=PitchShifter(shifter_settings, sample_rate),
+                    shifter=HighQualityPitchShifter(shifter_settings, sample_rate),
                     volume=(
                         settings.voice_volumes[i + 1]
                         if i + 1 < len(settings.voice_volumes)
@@ -146,6 +146,9 @@ class HarmoniserProcessor(AudioProcessor):
                         voice.current_freq = voice.target_freq
 
                     harmony = voice.shifter.shift_streaming(audio_block, ratio)
+                    # Ensure harmony has same shape as harmony_output for broadcasting
+                    if harmony.ndim == 1 and harmony_output.ndim > 1:
+                        harmony = harmony.reshape(-1, 1)
                     harmony_output += harmony * voice.volume
                 else:
                     voice.active = False
@@ -173,8 +176,10 @@ class HarmoniserProcessor(AudioProcessor):
             # Soft knee compression
             gain = threshold / peak
             # Smooth gain reduction using tanh
-            return np.tanh(audio * gain) / np.tanh(gain) * threshold
-        return audio
+            limited = np.tanh(audio * gain) / np.tanh(gain) * threshold
+            # Hard clip as safety net
+            return np.clip(limited, -1.0, 1.0)
+        return np.clip(audio, -1.0, 1.0)
 
     def _reset_harmonies(self):
         """Reset all harmony voices."""

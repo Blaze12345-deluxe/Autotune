@@ -29,6 +29,7 @@ dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
     "soundfile>=0.12",
+    "librosa>=0.11.0",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +47,10 @@ advanced = [
     "pyrubberband>=0.3.0",
     "librosa>=0.10.0",
     "pedalboard>=0.7.0",
+]
+gpu = [
+    "torch>=2.0",
+    "cupy-cuda12x>=13.0",
 ]
 docs = [
     "mkdocs>=1.5",

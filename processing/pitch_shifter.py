@@ -186,8 +186,16 @@ class PitchShifter:
             start = i * self.hop_size
             output[start : start + self.fft_size] += frame * self.window
 
+        # Normalize by window sum - compute window sum for the full output length
+        # The window sum for overlap-add at each position
+        full_window_sum = np.zeros(output_len, dtype=np.float32)
+        for i in range(n_frames):
+            start = i * self.hop_size
+            full_window_sum[start : start + self.fft_size] += self.window**2
+        full_window_sum[full_window_sum == 0] = 1.0
+        
         # Normalize by window sum
-        output = output / self.window_sum[: len(output)]
+        output = output / full_window_sum
 
         # Remove padding and match original length
         result = output[pad : pad + len(audio)]
