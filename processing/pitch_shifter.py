@@ -140,6 +140,10 @@ class PitchShifter:
         if abs(ratio - 1.0) < 0.001:
             return audio.copy()
 
+        # Ensure audio is 1D (flatten if needed, e.g., from (N, 1) to (N,))
+        if audio.ndim > 1:
+            audio = audio.flatten()
+
         # Pad for boundary handling
         pad = self.fft_size
         padded = np.pad(audio, (pad, pad), mode="reflect")
