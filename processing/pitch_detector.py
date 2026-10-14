@@ -179,6 +179,8 @@ class YINPitchDetector:
 
         # Step 5: Calculate frequency and confidence
         if tau_estimate > 0:
+            # Clamp tau_estimate to valid buffer range to prevent index errors
+            tau_estimate = max(self.min_period, min(tau_estimate, self.max_period - 1))
             frequency = self.sample_rate / tau_estimate
             confidence = 1.0 - self._cmnd_buffer[int(tau_estimate)]
 
@@ -224,7 +226,10 @@ class YINPitchDetector:
             return float(tau)
 
         delta = -0.5 * (y3 - y1) / denom
-        return tau + delta
+        result = tau + delta
+        
+        # Clamp result to valid range
+        return max(self.min_period, min(result, self.max_period - 1))
 
     def reset(self):
         """Reset detector state."""
