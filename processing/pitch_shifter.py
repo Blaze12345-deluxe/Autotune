@@ -207,41 +207,114 @@ class PitchShifter:
         return result.astype(np.float32)
 
     def shift_streaming(self, audio_block: np.ndarray, ratio: float) -> np.ndarray:
-        """Streaming pitch shift (maintains phase continuity across blocks).
-
+        """Streaming pitch shift using phase vocoder with proper state management.
+        
+        This implementation maintains phase continuity across blocks by:
+        1. Accumulating input in an analysis buffer until we have a full FFT frame
+        2. Processing frames using phase vocoder algorithm with phase accumulator
+        3. Using overlap-add synthesis with proper windowing
+        4. Maintaining phase accumulator state across blocks
+        
         Args:
-            audio_block: Input audio block (any length)
+            audio_block: Input audio block (any length, 1D or 2D with shape (N, 1))
             ratio: Pitch shift ratio
-
+            
         Returns:
-            Pitch-shifted block of same length
+            Pitch-shifted block of same length as input
         """
+        # Ensure 1D input
+        if audio_block.ndim > 1:
+            audio_block = audio_block.flatten()
+            
+        # Initialize state if needed
         if self.state is None:
             self._init_streaming_state()
-
+        
         ratio = np.clip(ratio, 1.0 / self.max_shift_ratio, self.max_shift_ratio)
-
+        
         if abs(ratio - 1.0) < 0.001:
             return audio_block.copy()
-
+        
         n_samples = len(audio_block)
         output = np.zeros(n_samples, dtype=np.float32)
-
-        # Simple approach: use the offline shift method for small blocks
-        # This avoids complex streaming state management
-        # For real-time, we process the block and return same-size output
-        shifted = self.shift(audio_block, ratio)
         
-        # Ensure same length
-        if len(shifted) != n_samples:
-            if len(shifted) > n_samples:
-                shifted = shifted[:n_samples]
-            else:
-                padded = np.zeros(n_samples, dtype=np.float32)
-                padded[:len(shifted)] = shifted
-                shifted = padded
+        # Process samples one by one, maintaining streaming state
+        input_ptr = 0
+        output_ptr = 0
         
-        return shifted
+        while input_ptr < n_samples or self.state.analysis_pos >= self.hop_size:
+            # Fill analysis buffer until we have a full hop
+            if self.state.analysis_pos < self.hop_size and input_ptr < n_samples:
+                space = self.hop_size - self.state.analysis_pos
+                chunk_size = min(space, n_samples - input_ptr)
+                self.state.analysis_buffer[
+                    self.state.analysis_pos:self.state.analysis_pos + chunk_size
+                ] = audio_block[input_ptr:input_ptr + chunk_size]
+                self.state.analysis_pos += chunk_size
+                input_ptr += chunk_size
+            
+            # Process one hop when we have enough data
+            if self.state.analysis_pos >= self.hop_size:
+                # Analyze one hop_size frame (padded to fft_size for FFT)
+                frame = np.zeros(self.fft_size, dtype=np.float32)
+                frame[:self.hop_size] = self.state.analysis_buffer[:self.hop_size] * self.window[:self.hop_size]
+                
+                # STFT analysis
+                spectrum = np.fft.rfft(frame)
+                magnitude = np.abs(spectrum)
+                phase = np.angle(spectrum)
+                
+                # Phase difference
+                phase_diff = self._wrap_phase(
+                    phase - self.state.previous_phase - self.expected_phase_advance
+                )
+                true_freq = self.expected_phase_advance + phase_diff
+                
+                # Scale frequency
+                true_freq *= ratio
+                
+                # Formant preservation (simplified)
+                if self.preserve_formants and ratio != 1.0:
+                    magnitude = self._preserve_formants_streaming(magnitude, ratio)
+                
+                # Accumulate phase
+                self.state.phase_accumulator = self._wrap_phase(
+                    self.state.phase_accumulator + true_freq
+                )
+                
+                # Synthesize
+                new_spectrum = magnitude * np.exp(1j * self.state.phase_accumulator)
+                synth_frame = np.fft.irfft(new_spectrum, n=self.fft_size)
+                synth_frame *= self.window
+                
+                # Overlap-add to synthesis buffer
+                self.state.synthesis_buffer += synth_frame
+                
+                # Output available samples (up to hop_size)
+                out_len = min(self.hop_size, n_samples - output_ptr)
+                if out_len > 0:
+                    out_data = self.state.synthesis_buffer[:out_len]
+                    norm = self.window_sum[:out_len]
+                    output[output_ptr:output_ptr + out_len] = out_data / norm
+                    output_ptr += out_len
+                
+                # Update state
+                self.state.previous_phase = phase
+                # Shift analysis buffer by hop_size
+                self.state.analysis_buffer[:-self.hop_size] = self.state.analysis_buffer[self.hop_size:]
+                self.state.analysis_buffer[-self.hop_size:] = 0
+                self.state.analysis_pos = max(0, self.state.analysis_pos - self.hop_size)
+                
+                # Shift synthesis buffer
+                self.state.synthesis_buffer[:-self.hop_size] = self.state.synthesis_buffer[self.hop_size:]
+                self.state.synthesis_buffer[-self.hop_size:] = 0
+                self.state.synthesis_pos = max(0, self.state.synthesis_pos - self.hop_size)
+        
+        # If we didn't produce enough output (not enough input for a full hop),
+        # the remaining output stays as zeros (silence)
+        # This is acceptable for real-time processing
+        
+        return output
 
     def _wrap_phase(self, phase: np.ndarray) -> np.ndarray:
         """Wrap phase to [-pi, pi]."""
